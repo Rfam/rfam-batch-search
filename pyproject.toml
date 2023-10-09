@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "rfam-search"
+version = "0.1.0"
+description = "An API to search a sequence with Rfam"
+authors = ["Blake Sweeney <bsweeney@ebi.ac.uk>"]
+license = "APACHE2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+biopython = "^1.81"
+aiohttp = "^3.8.5"
+fastapi = "^0.103.2"
+python-multipart = "^0.0.6"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.9.1"
+uvicorn = "^0.23.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
