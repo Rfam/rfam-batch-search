@@ -18,8 +18,15 @@ class SubmissionResponse(BaseModel):
     job_id: str = Field(alias="jobId")
 
     @classmethod
-    def build(cls) -> SubmissionResponse:
-        pass
+    def build(
+        cls, result_url: str, opened: dt.datetime, estimated_time: float, job_id: str
+    ) -> "SubmissionResponse":
+        return cls(
+            resultURL=result_url,
+            opened=opened,
+            estimatedTime=estimated_time,
+            jobId=job_id,
+        )
 
 
 class SubmittedRequest(BaseModel):
@@ -31,7 +38,7 @@ class SubmittedRequest(BaseModel):
         lines = raw.strip().split("\n")
         sequence_lines = [line for line in lines if not line.startswith(">")]
         raw_sequence = "".join(sequence_lines).upper()
-        
+
         # Check sequence length
         if len(raw_sequence) > 7000:
             raise ValueError("Sequence length must be less than 7,000 nucleotides")
@@ -86,5 +93,22 @@ class CmScanResult(BaseModel):
     job_id: str = Field(alias="jobId")
 
     @classmethod
-    def build(cls) -> CmScanResult:
-        pass
+    def build(
+        cls,
+        closed: dt.datetime,
+        search_sequence: str,
+        hits: ty.Dict[str, InfernalHit],
+        opened: dt.datetime,
+        num_hits: int,
+        started: dt.datetime,
+        job_id: str,
+    ) -> "CmScanResult":
+        return cls(
+            closed=closed,
+            searchSequence=search_sequence,
+            hits=hits,
+            opened=opened,
+            numHits=num_hits,
+            started=started,
+            jobId=job_id,
+        )
