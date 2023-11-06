@@ -12,6 +12,9 @@ biopython = "^1.81"
 aiohttp = "^3.8.5"
 fastapi = "^0.103.2"
 python-multipart = "^0.0.6"
+pytest = "^7.4.2"
+requests = "^2.31.0"
+httpx = "^0.25.0"
 
 
 [tool.poetry.group.dev.dependencies]
