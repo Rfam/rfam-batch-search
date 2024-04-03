@@ -28,8 +28,10 @@ async def on_startup() -> None:
 async def get_result(job_id: str) -> api.CmScanResult:
 
     try:
-        result = await jd.JobDispatcher().cmscan_result(job_id)
-        cm_scan_result = api.parse_cm_scan_result(result) 
+        out = await jd.JobDispatcher().cmscan_result(job_id)
+        sequence = await jd.JobDispatcher().cmscan_sequence(job_id)
+        tblout = await jd.JobDispatcher().cmscan_tblout(job_id)
+        cm_scan_result = api.parse_cm_scan_result(out, sequence, tblout, job_id)
     except HTTPException as e:
         raise e
 
