@@ -46,7 +46,9 @@ class JobDispatcher:
     async def submit_cmscan_job(self, data: Query) -> str:
         try:
             query = data.payload()
-            async with self.client.post(f"{INFERNAL_CMSCAN_BASE_URL}/run", data=query) as r:
+            async with self.client.post(
+                f"{INFERNAL_CMSCAN_BASE_URL}/run", data=query
+            ) as r:
                 response_text = await r.text()
                 return response_text
                 # return JobSubmitResult(job_id=response_text)
@@ -57,19 +59,25 @@ class JobDispatcher:
             )
 
     async def cmscan_result(self, job_id: str) -> str:
-        async with self.client.get(f"{INFERNAL_CMSCAN_BASE_URL}/result/{job_id}/out") as r:
+        async with self.client.get(
+            f"{INFERNAL_CMSCAN_BASE_URL}/result/{job_id}/out"
+        ) as r:
             if r.status == 200:
                 response_text = await r.text()
             return response_text if response_text else ""
 
     async def cmscan_sequence(self, job_id: str) -> str:
-        async with self.client.get(f"{INFERNAL_CMSCAN_BASE_URL}/result/{job_id}/sequence") as r:
+        async with self.client.get(
+            f"{INFERNAL_CMSCAN_BASE_URL}/result/{job_id}/sequence"
+        ) as r:
             if r.status == 200:
                 sequence = await r.text()
             return sequence if sequence else ""
 
     async def cmscan_tblout(self, job_id: str) -> str:
-        async with self.client.get(f"{INFERNAL_CMSCAN_BASE_URL}/result/{job_id}/tblout") as r:
+        async with self.client.get(
+            f"{INFERNAL_CMSCAN_BASE_URL}/result/{job_id}/tblout"
+        ) as r:
             if r.status == 200:
                 tblout_text = await r.text()
             return tblout_text if tblout_text else ""

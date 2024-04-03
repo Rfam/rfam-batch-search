@@ -120,7 +120,9 @@ class CmScanResult(BaseModel):
 
 
 # Function to parse the CmScanResult format into the models
-def parse_cm_scan_result(out_text: str, sequence: str, tblout_text: str, job_id: str) -> CmScanResult:
+def parse_cm_scan_result(
+    out_text: str, sequence: str, tblout_text: str, job_id: str
+) -> CmScanResult:
     # Get sequence
     search_sequence = sequence.split("\n")
     if search_sequence[0].startswith(">"):
@@ -130,19 +132,21 @@ def parse_cm_scan_result(out_text: str, sequence: str, tblout_text: str, job_id:
 
     # Get data from tblout_text
     tblout = []
-    for line in tblout_text.split('\n'):
+    for line in tblout_text.split("\n"):
         if not line.startswith("#") and not line == "":
             line = re.sub(" +", " ", line).strip().split(" ")
-            tblout.append({
-                "id": line[0],
-                "acc": line[1],
-                "start": int(line[7]),
-                "end": int(line[8]),
-                "strand": line[9],
-                "GC": float(line[12]),
-                "score": float(line[14]),
-                "E": float(line[15]),
-            })
+            tblout.append(
+                {
+                    "id": line[0],
+                    "acc": line[1],
+                    "start": int(line[7]),
+                    "end": int(line[8]),
+                    "strand": line[9],
+                    "GC": float(line[12]),
+                    "score": float(line[14]),
+                    "E": float(line[15]),
+                }
+            )
 
     # Get number of CM hits reported
     num_hits = re.search(r"Total CM hits reported:\s+(\d+)\s", out_text)
@@ -152,7 +156,7 @@ def parse_cm_scan_result(out_text: str, sequence: str, tblout_text: str, job_id:
     hit_scores = []
 
     # Iterate through lines to extract alignment from out_text
-    lines = out_text.split('\n')
+    lines = out_text.split("\n")
     line_index = 16  # Start of hit scores
     while line_index < len(lines):
         if lines[line_index].startswith(">>"):
@@ -166,12 +170,21 @@ def parse_cm_scan_result(out_text: str, sequence: str, tblout_text: str, job_id:
             alignment = ""
             line_index += 1
 
-            while line_index < len(lines) and not lines[line_index].strip().startswith(">>") and not lines[line_index].strip().startswith("Internal"):
+            while (
+                line_index < len(lines)
+                and not lines[line_index].strip().startswith(">>")
+                and not lines[line_index].strip().startswith("Internal")
+            ):
                 alignment = alignment + lines[line_index] + "\n"
                 line_index += 1
 
             for item in tblout:
-                if item["start"] == start and item["end"] == end and item["score"] == score and item["E"] == e_value:
+                if (
+                    item["start"] == start
+                    and item["end"] == end
+                    and item["score"] == score
+                    and item["E"] == e_value
+                ):
                     item["alignment"] = alignment
                     hit_scores.append(Hit.model_validate(item))
                     break
@@ -179,4 +192,6 @@ def parse_cm_scan_result(out_text: str, sequence: str, tblout_text: str, job_id:
         else:
             line_index += 1
 
-    return CmScanResult(searchSequence=search_sequence, numHits=num_hits, jobId=job_id, hits=hit_scores)
+    return CmScanResult(
+        searchSequence=search_sequence, numHits=num_hits, jobId=job_id, hits=hit_scores
+    )

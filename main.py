@@ -26,7 +26,6 @@ async def on_startup() -> None:
 
 @app.get("/result/{job_id}")
 async def get_result(job_id: str) -> api.CmScanResult:
-
     try:
         out = await jd.JobDispatcher().cmscan_result(job_id)
         sequence = await jd.JobDispatcher().cmscan_sequence(job_id)
@@ -45,7 +44,7 @@ async def submit_job(
     sequence_file: UploadFile = File(...),
     id: ty.Optional[str] = Form(None),
 ) -> api.SubmissionResponse:
-#   ) -> str:
+    #   ) -> str:
     try:
         content = await sequence_file.read()
         parsed = api.SubmittedRequest.parse(content.decode())
@@ -63,7 +62,7 @@ async def submit_job(
         print(job_id)
     except HTTPException as e:
         raise e
-    
+
     # return job_id
 
     return api.SubmissionResponse.build(
