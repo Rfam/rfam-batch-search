@@ -2,8 +2,6 @@ from __future__ import annotations
 import re
 
 import typing as ty
-import datetime as dt
-
 from pydantic import BaseModel, Field
 
 TIMESTAMP_FORMAT = ""
@@ -101,158 +99,84 @@ class SubmittedRequest(BaseModel):
 
         return cls(sequences=sequences)
 
-class HitAlignment(BaseModel):
-    rank: int
-    e_value: float
-    score: float
-    bias: float
-    model_name: str
-    start: int
-    end: int
-    mdl: str
-    trunc: str
-    gc: float
-    description: str
 
 class Hit(BaseModel):
-    rank: int
-    e_value: float
-    score: float
-    bias: float
-    model_name: str
+    id: str
+    acc: str
     start: int
     end: int
-    mdl: str
-    trunc: str
-    gc: float
-    description: str
+    strand: str
+    GC: float
+    score: float
+    E: float
+    alignment: str
 
-class Alignment(BaseModel):
-    sequence_name: str
-    sequence: str
-    model_name: str
-    sequence_start: int
-    sequence_end: int
-    model_start: int
-    model_end: int
-    acc: float
-    trunc: str
-    gc: float
 
 class CmScanResult(BaseModel):
-    query: str
-    hit_scores: ty.List[Hit]
-    hit_alignments: ty.List[Alignment]
+    searchSequence: str
+    numHits: int
+    jobId: str
+    hits: ty.List[Hit]
+
 
 # Function to parse the CmScanResult format into the models
-def parse_cm_scan_result(result_text: str) -> CmScanResult:
-    lines = result_text.split('\n')
-    query = lines[9].split()[-1]
+def parse_cm_scan_result(out_text: str, sequence: str, tblout_text: str, job_id: str) -> CmScanResult:
+    # Get sequence
+    search_sequence = sequence.split("\n")
+    if search_sequence[0].startswith(">"):
+        search_sequence = "".join(search_sequence[1:])
+    else:
+        search_sequence = "".join(search_sequence)
 
-    # Initialize empty lists for hit_scores and hit_alignments
+    # Get data from tblout_text
+    tblout = []
+    for line in tblout_text.split('\n'):
+        if not line.startswith("#") and not line == "":
+            line = re.sub(" +", " ", line).strip().split(" ")
+            tblout.append({
+                "id": line[0],
+                "acc": line[1],
+                "start": int(line[7]),
+                "end": int(line[8]),
+                "strand": line[9],
+                "GC": float(line[12]),
+                "score": float(line[14]),
+                "E": float(line[15]),
+            })
+
+    # Get number of CM hits reported
+    num_hits = re.search(r"Total CM hits reported:\s+(\d+)\s", out_text)
+    num_hits = int(num_hits.group(1)) if num_hits else 0
+
+    # Initialize empty lists for hits
     hit_scores = []
-    hit_alignments = []
 
-    # Iterate through lines to extract data
-    line_index = 12  # Start of hit scores
+    # Iterate through lines to extract alignment from out_text
+    lines = out_text.split('\n')
+    line_index = 16  # Start of hit scores
     while line_index < len(lines):
-        if lines[line_index].startswith('>>'):
-            line_index += 1  # Skip the header line
-            while line_index < len(lines) and not lines[line_index].strip().startswith("rank"):
-                parts = lines[line_index].strip().split()
-                if len(parts) == 11:
-                    rank, e_value, score, bias, model_name, start, end, mdl, trunc, gc, description = parts
-                    hit_scores.append(Hit(
-                        rank=int(rank),
-                        e_value=float(e_value),
-                        score=float(score),
-                        bias=float(bias),
-                        model_name=model_name,
-                        start=int(start),
-                        end=int(end),
-                        mdl=mdl,
-                        trunc=trunc,
-                        gc=float(gc),
-                        description=description,
-                    ))
+        if lines[line_index].startswith(">>"):
+            line_index += 3  # Skip unnecessary lines
+            fields = lines[line_index].strip().split()
+            start = int(fields[9])
+            end = int(fields[10])
+            score = float(fields[3])
+            e_value = float(fields[2])
+
+            alignment = ""
+            line_index += 1
+
+            while line_index < len(lines) and not lines[line_index].strip().startswith(">>") and not lines[line_index].strip().startswith("Internal"):
+                alignment = alignment + lines[line_index] + "\n"
                 line_index += 1
-        elif lines[line_index].startswith("rank"):
-            line_index += 1  # Skip the header line
-            while line_index < len(lines) and not lines[line_index].strip().startswith(">>"):
-                parts = lines[line_index].strip().split()
-                if len(parts) == 10:
-                    rank, e_value, score, bias, model_name, mdl_from, mdl_to, seq_from, seq_to, acc = parts
-                    sequence_name, model_name = lines[line_index].strip().split("  ")
-                    model_name = model_name.strip()
-                    sequence_name = sequence_name.strip()
-                    alignment = Alignment(
-                        sequence_name=sequence_name,
-                        sequence=lines[line_index + 1].strip(),
-                        model_name=model_name,
-                        sequence_start=int(seq_from),
-                        sequence_end=int(seq_to),
-                        model_start=int(mdl_from),
-                        model_end=int(mdl_to),
-                        acc=float(acc),
-                        trunc="no",
-                        gc=0.0,
-                    )
-                    hit_alignments.append(alignment)
-                line_index += 2
+
+            for item in tblout:
+                if item["start"] == start and item["end"] == end and item["score"] == score and item["E"] == e_value:
+                    item["alignment"] = alignment
+                    hit_scores.append(Hit.model_validate(item))
+                    break
+
         else:
             line_index += 1
 
-    return CmScanResult(query=query, hit_scores=hit_scores, hit_alignments=hit_alignments)
-
-
-
-# class InfernalAlignment(BaseModel):
-#     user_seq: str
-#     hit_seq: str
-#     ss: str
-#     match: str
-#     pp: str
-#     nc: str
-
-
-# class InfernalHit(BaseModel):
-#     score: str
-#     e: str = Field(alias="E")
-#     acc: str
-#     end: str
-#     alignment: InfernalAlignment
-#     strand: str
-#     id: str
-#     gc: str = Field(alias="GC")
-#     start: str
-
-
-# class CmScanResult(BaseModel):
-    closed: dt.datetime
-    search_sequence: str = Field(alias="searchSequence")
-    hits: ty.Dict[str, InfernalHit]
-    opened: dt.datetime
-    num_hits: int = Field(alias="numHits")
-    started: dt.datetime
-    job_id: str = Field(alias="jobId")
-
-    @classmethod
-    def build(
-        cls,
-        closed: dt.datetime,
-        search_sequence: str,
-        hits: ty.Dict[str, InfernalHit],
-        opened: dt.datetime,
-        num_hits: int,
-        started: dt.datetime,
-        job_id: str,
-    ) -> "CmScanResult":
-        return cls(
-            closed=closed,
-            searchSequence=search_sequence,
-            hits=hits,
-            opened=opened,
-            numHits=num_hits,
-            started=started,
-            jobId=job_id,
-        )
+    return CmScanResult(searchSequence=search_sequence, numHits=num_hits, jobId=job_id, hits=hit_scores)
