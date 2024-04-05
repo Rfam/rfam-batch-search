@@ -1,7 +1,8 @@
 from __future__ import annotations
 import re
-
 import typing as ty
+
+from datetime import datetime
 from pydantic import BaseModel, Field
 
 TIMESTAMP_FORMAT = ""
@@ -125,6 +126,9 @@ class CmScanResult(BaseModel):
     searchSequence: str
     numHits: int
     jobId: str
+    opened: str
+    started: str
+    closed: str
     hits: ty.Dict[str, ty.List[Hit]]
 
 
@@ -140,6 +144,7 @@ def parse_cm_scan_result(
         search_sequence = "".join(search_sequence)
 
     # Get data from tblout_text
+    date = ""
     hit_list = []
     for line in tblout_text.split("\n"):
         if not line.startswith("#") and not line == "":
@@ -156,6 +161,10 @@ def parse_cm_scan_result(
                     "E": float(line[15]),
                 }
             )
+        elif line.startswith("# Date:"):
+            date_str = line.split("# Date:")[1].strip()
+            date_obj = datetime.strptime(date_str, "%a %b %d %H:%M:%S %Y")
+            date = date_obj.strftime("%Y-%m-%d %H:%M:%S")
 
     # Get number of CM hits reported
     num_hits = re.search(r"Total CM hits reported:\s+(\d+)\s", out_text)
@@ -212,5 +221,11 @@ def parse_cm_scan_result(
         hits[id_value].append(Hit(**item))
 
     return CmScanResult(
-        searchSequence=search_sequence, numHits=num_hits, jobId=job_id, hits=hits
+        searchSequence=search_sequence,
+        numHits=num_hits,
+        jobId=job_id,
+        opened=date,
+        started=date,
+        closed=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        hits=hits,
     )
