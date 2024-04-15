@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 
-import argparse
-import datetime as dt
 import typing as ty
 
-from fastapi import FastAPI, File, HTTPException, Form, UploadFile
-import requests
+from fastapi import FastAPI, File, HTTPException, Form, Request, UploadFile
 import uvicorn
 
 from rfam_batch import job_dispatcher as jd
@@ -39,12 +36,14 @@ async def get_result(job_id: str) -> api.CmScanResult:
 
 @app.post("/submit-job")
 async def submit_job(
-    # sequence: ty.Annotated[str, Form()],
+    *,
     email_address: ty.Annotated[str, Form()],
     sequence_file: UploadFile = File(...),
     id: ty.Optional[str] = Form(None),
+    request: Request,
 ) -> api.SubmissionResponse:
-    #   ) -> str:
+    url = request.url
+
     try:
         content = await sequence_file.read()
         parsed = api.SubmittedRequest.parse(content.decode())
@@ -55,17 +54,14 @@ async def submit_job(
     query.id = id
     query.sequences = parsed.sequences
     query.email_address = email_address
-    # query = jd.Query(sequences=parsed.sequences, email_address=email_address, id=id)
 
     try:
         job_id = await jd.JobDispatcher().submit_cmscan_job(query)
-        print(job_id)
     except HTTPException as e:
         raise e
 
-    # return job_id
-
     return api.SubmissionResponse.build(
+        result_url=f"{url.scheme}://{url.netloc}/result/{job_id}",
         job_id=job_id,
     )
 

@@ -11,15 +11,15 @@ SEARCH_MULTIPLIER = 0
 
 
 class SubmissionResponse(BaseModel):
-    # result_url: str = Field(alias="resultURL")
+    result_url: str = Field(alias="resultURL")
     # opened: dt.datetime
     # estimated_time: float = Field(alias="estimatedTime")
     job_id: str = Field(alias="jobId")
 
     @classmethod
-    def build(cls, job_id: str) -> "SubmissionResponse":
+    def build(cls, job_id: str, result_url: str) -> "SubmissionResponse":
         return cls(
-            # resultURL=result_url,
+            resultURL=result_url,
             # opened=opened,
             # estimatedTime=estimated_time,
             jobId=job_id,
