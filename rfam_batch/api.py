@@ -166,6 +166,8 @@ def parse_cm_scan_result(
             date_obj = datetime.strptime(date_str, "%a %b %d %H:%M:%S %Y")
             date = date_obj.strftime("%Y-%m-%d %H:%M:%S")
 
+    closed = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if date != "" else ""
+
     # Get number of CM hits reported
     num_hits = re.search(r"Total CM hits reported:\s+(\d+)\s", out_text)
     num_hits = int(num_hits.group(1)) if num_hits else 0
@@ -226,6 +228,6 @@ def parse_cm_scan_result(
         jobId=job_id,
         opened=date,
         started=date,
-        closed=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        closed=closed,
         hits=hits,
     )
