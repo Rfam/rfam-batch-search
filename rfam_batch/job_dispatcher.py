@@ -62,22 +62,22 @@ class JobDispatcher:
         async with self.client.get(
             f"{INFERNAL_CMSCAN_BASE_URL}/result/{job_id}/out"
         ) as r:
-            if r.status == 200:
-                response_text = await r.text()
-            return response_text if response_text else ""
+            if r.status != 200:
+                return ""
+            return await r.text()
 
     async def cmscan_sequence(self, job_id: str) -> str:
         async with self.client.get(
             f"{INFERNAL_CMSCAN_BASE_URL}/result/{job_id}/sequence"
         ) as r:
-            if r.status == 200:
-                sequence = await r.text()
-            return sequence if sequence else ""
+            if r.status != 200:
+                return ""
+            return await r.text()
 
     async def cmscan_tblout(self, job_id: str) -> str:
         async with self.client.get(
             f"{INFERNAL_CMSCAN_BASE_URL}/result/{job_id}/tblout"
         ) as r:
-            if r.status == 200:
-                tblout_text = await r.text()
-            return tblout_text if tblout_text else ""
+            if r.status != 200:
+                return ""
+            return await r.text()
