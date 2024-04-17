@@ -22,7 +22,7 @@ async def on_startup() -> None:
 
 
 @app.get("/result/{job_id}")
-async def get_result(job_id: str) -> api.CmScanResult:
+async def get_result(job_id: str) -> api.CmScanResult | api.MultipleSequences:
     try:
         out = await jd.JobDispatcher().cmscan_result(job_id)
         sequence = await jd.JobDispatcher().cmscan_sequence(job_id)

@@ -132,20 +132,20 @@ class CmScanResult(BaseModel):
     hits: ty.Dict[str, ty.List[Hit]]
 
 
-# Function to parse the CmScanResult format into the models
-def parse_cm_scan_result(
-    out_text: str, sequence: str, tblout_text: str, job_id: str
-) -> CmScanResult:
-    # Get sequence
-    search_sequence = sequence.split("\n")
-    if search_sequence[0].startswith(">"):
-        search_sequence = "".join(search_sequence[1:])
-    else:
-        search_sequence = "".join(search_sequence)
+class MultipleSequences(BaseModel):
+    opened: str
+    hits: ty.List
 
-    # Get data from tblout_text
+
+def parse_tblout_file(tblout_text: str) -> ty.Tuple[str, ty.List]:
+    """
+    This function parses the tblout file and extracts the necessary data
+    :param tblout_text: tblout file contents
+    :return: date and hit list
+    """
     date = ""
     hit_list = []
+
     for line in tblout_text.split("\n"):
         if not line.startswith("#") and not line == "":
             line = re.sub(" +", " ", line).strip().split(" ")
@@ -166,6 +166,34 @@ def parse_cm_scan_result(
             date_obj = datetime.strptime(date_str, "%a %b %d %H:%M:%S %Y")
             date = date_obj.strftime("%Y-%m-%d %H:%M:%S")
 
+    return date, hit_list
+
+
+def parse_cm_scan_result(
+    out_text: str, sequence: str, tblout_text: str, job_id: str
+) -> CmScanResult | MultipleSequences:
+    """
+    Function to parse the CmScanResult/MultipleSequences format into the models
+    :param out_text: out file contents
+    :param sequence: sequence file contents
+    :param tblout_text: tblout file contents
+    :param job_id: ID created by Infernal cmscan
+    :return: CmScanResult or MultipleSequences
+    """
+    if sequence.count(">") > 1:
+        # Show only tblout file results
+        date, hit_list = parse_tblout_file(tblout_text)
+        return MultipleSequences(opened=date, hits=hit_list)
+
+    # Get sequence
+    search_sequence = sequence.split("\n")
+    if search_sequence[0].startswith(">"):
+        search_sequence = "".join(search_sequence[1:])
+    else:
+        search_sequence = "".join(search_sequence)
+
+    # Get data from tblout_text
+    date, hit_list = parse_tblout_file(tblout_text)
     closed = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if date != "" else ""
 
     # Get number of CM hits reported
