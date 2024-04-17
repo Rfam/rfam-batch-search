@@ -30,6 +30,29 @@ class SubmittedRequest(BaseModel):
     sequences: ty.List[str]
 
     @classmethod
+    def validate(cls, sequence: str) -> str:
+        # Remove FASTA headers and apply checks
+        sequence_lines = sequence.split("\n")
+        raw_sequence = "".join(sequence_lines).upper()
+
+        # Check sequence length
+        if len(raw_sequence) > 7000:
+            raise ValueError("Sequence length must be less than 7,000 nucleotides")
+
+        # Check for invalid characters
+        invalid_chars = re.findall(r"[^ACGTURYSWMKBDHN]", raw_sequence.upper())
+        if invalid_chars:
+            raise ValueError(
+                f"Invalid characters in sequence: {', '.join(invalid_chars)}"
+            )
+
+        # Check for gap characters
+        if "." in raw_sequence or "-" in raw_sequence:
+            raise ValueError("Gap characters '.' and '-' are not allowed")
+
+        return raw_sequence
+
+    @classmethod
     def parse(cls, raw: str) -> SubmittedRequest:
         sequences = []
         current_sequence = ""
@@ -41,32 +64,7 @@ class SubmittedRequest(BaseModel):
             # Check if the line starts with ">"
             if line.startswith(">"):
                 if current_sequence:
-                    # Remove FASTA headers and apply checks
-                    sequence_lines = current_sequence.split("\n")
-                    raw_sequence = "".join(sequence_lines).upper()
-
-                    # Check sequence length
-                    if len(raw_sequence) > 7000:
-                        raise ValueError(
-                            "Sequence length must be less than 7,000 nucleotides"
-                        )
-
-                    # Check for invalid characters
-                    invalid_chars = re.findall(
-                        r"[^ACGTURYSWMKBDHN]", raw_sequence.upper()
-                    )
-                    if invalid_chars:
-                        raise ValueError(
-                            "Invalid characters in sequence: {}".format(
-                                ", ".join(invalid_chars)
-                            )
-                        )
-
-                    # Check for gap characters
-                    if "." in raw_sequence or "-" in raw_sequence:
-                        raise ValueError("Gap characters '.' and '-' are not allowed")
-
-                    # Add the validated sequence to the list
+                    raw_sequence = cls.validate(current_sequence)
                     sequences.append(raw_sequence)
                 current_sequence = ""
             else:
@@ -74,28 +72,7 @@ class SubmittedRequest(BaseModel):
 
         # Add the last sequence to the list after the loop
         if current_sequence:
-            # Apply checks to the last sequence
-            sequence_lines = current_sequence.split("\n")
-            raw_sequence = "".join(sequence_lines).upper()
-
-            # Check sequence length
-            if len(raw_sequence) > 7000:
-                raise ValueError("Sequence length must be less than 7,000 nucleotides")
-
-            # Check for invalid characters
-            invalid_chars = re.findall(r"[^ACGTURYSWMKBDHN]", raw_sequence.upper())
-            if invalid_chars:
-                raise ValueError(
-                    "Invalid characters in sequence: {}".format(
-                        ", ".join(invalid_chars)
-                    )
-                )
-
-            # Check for gap characters
-            if "." in raw_sequence or "-" in raw_sequence:
-                raise ValueError("Gap characters '.' and '-' are not allowed")
-
-            # Add the validated last sequence to the list
+            raw_sequence = cls.validate(current_sequence)
             sequences.append(raw_sequence)
 
         return cls(sequences=sequences)
