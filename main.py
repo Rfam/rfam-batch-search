@@ -17,6 +17,7 @@ origins = [
     "https://rfam.org",
     "https://preview.rfam.org",
     "https://rfam.xfam.org",
+    "https://batch.rfam.org",
 ]
 
 app.add_middleware(
