@@ -3,12 +3,29 @@
 import typing as ty
 
 from fastapi import FastAPI, File, HTTPException, Form, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from rfam_batch import job_dispatcher as jd
 from rfam_batch import api
 
 app = FastAPI(docs_url="/docs")
+
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://rfam.org",
+    "https://preview.rfam.org",
+    "https://rfam.xfam.org",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("shutdown")
