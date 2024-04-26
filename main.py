@@ -4,6 +4,7 @@ import typing as ty
 
 from fastapi import FastAPI, File, HTTPException, Form, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 import uvicorn
 
 from rfam_batch import job_dispatcher as jd
@@ -50,6 +51,22 @@ async def get_result(job_id: str) -> api.CmScanResult | api.MultipleSequences:
         raise e
 
     return cm_scan_result
+
+
+@app.get("/result/{job_id}/tblout", response_class=PlainTextResponse)
+async def get_tblout(job_id: str) -> PlainTextResponse:
+    try:
+        tblout = await jd.JobDispatcher().cmscan_tblout(job_id)
+    except HTTPException as e:
+        raise e
+
+    # Create a PlainTextResponse with CORS headers
+    response = PlainTextResponse(content=tblout)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+
+    return response
 
 
 @app.post("/submit-job")
