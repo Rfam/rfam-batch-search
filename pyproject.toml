@@ -17,6 +17,7 @@ requests = "^2.31.0"
 httpx = "^0.25.0"
 gunicorn = "^21.2.0"
 aiosmtplib = "^3.0.1"
+python-dotenv = "^1.0.1"
 
 
 [tool.poetry.group.dev.dependencies]
