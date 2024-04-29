@@ -4,6 +4,7 @@ __pycache__/
 *.pyo
 *.retry
 
+.env
 .venv
 tests/.pytest_cache
 terraform/.terraform
