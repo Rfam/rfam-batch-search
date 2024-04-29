@@ -81,3 +81,7 @@ class JobDispatcher:
             if r.status != 200:
                 return ""
             return await r.text()
+
+    async def cmscan_status(self, job_id: str) -> str:
+        async with self.client.get(f"{INFERNAL_CMSCAN_BASE_URL}/status/{job_id}") as r:
+            return await r.text()
