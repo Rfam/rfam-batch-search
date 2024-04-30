@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
-
+import aiosmtplib
+import asyncio
+import os
 import typing as ty
 
-from fastapi import FastAPI, File, HTTPException, Form, Request, UploadFile
+from dotenv import load_dotenv
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from fastapi import (
+    BackgroundTasks,
+    FastAPI,
+    File,
+    HTTPException,
+    Form,
+    Request,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 import uvicorn
@@ -28,6 +41,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 @app.on_event("shutdown")
@@ -69,6 +85,65 @@ async def get_tblout(job_id: str) -> PlainTextResponse:
     return response
 
 
+@app.get("/status/{job_id}", response_class=PlainTextResponse)
+async def fetch_status(job_id: str) -> PlainTextResponse:
+    try:
+        status = await jd.JobDispatcher().cmscan_status(job_id)
+    except HTTPException as e:
+        raise e
+
+    # Create a PlainTextResponse with CORS headers
+    response = PlainTextResponse(content=status)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+
+    return response
+
+
+async def send_email(email_address: str, job_id: str, status: str, tblout: str):
+    sender_email = os.getenv("EMAIL")
+    password = os.getenv("PASSWORD")
+    server = os.getenv("SERVER")
+    port = os.getenv("PORT")
+
+    msg = MIMEMultipart()
+    msg["From"] = sender_email
+    msg["To"] = email_address
+
+    if status == "FINISHED":
+        msg["Subject"] = f"Results for batch search job {job_id}"
+        msg.attach(MIMEText(tblout, "plain"))
+    else:
+        msg["Subject"] = f"Error in batch search job {job_id}"
+        body = (
+            "There was a problem while running the search. Please try "
+            "again or send us the job id if the problem persists."
+        )
+        msg.attach(MIMEText(body, "plain"))
+
+    async with aiosmtplib.SMTP(hostname=server, port=port) as smtp:
+        await smtp.login(sender_email, password)
+        await smtp.send_message(msg)
+
+
+async def check_status(email_address: str, job_id: str):
+    while True:
+        # This function will run as long as the status is 'RUNNING' or 'QUEUED'
+        status = await jd.JobDispatcher().cmscan_status(job_id)
+        if status == "FINISHED":
+            tblout = await jd.JobDispatcher().cmscan_tblout(job_id)
+            await send_email(email_address, job_id, status, tblout)
+            break
+        elif status == "NOT_FOUND":
+            # I'm assuming we will never see this status after a POST
+            break
+        elif status == "FAILURE" or status == "ERROR":
+            await send_email(email_address, job_id, status, "")
+            break
+        await asyncio.sleep(10)
+
+
 @app.post("/submit-job")
 async def submit_job(
     *,
@@ -76,6 +151,7 @@ async def submit_job(
     sequence_file: UploadFile = File(...),
     id: ty.Optional[str] = Form(None),
     request: Request,
+    background_tasks: BackgroundTasks,
 ) -> api.SubmissionResponse:
     url = request.url
 
@@ -94,6 +170,9 @@ async def submit_job(
         job_id = await jd.JobDispatcher().submit_cmscan_job(query)
     except HTTPException as e:
         raise e
+
+    # Background task to check status
+    background_tasks.add_task(check_status, email_address, job_id)
 
     return api.SubmissionResponse.build(
         result_url=f"{url.scheme}://{url.netloc}/result/{job_id}",
