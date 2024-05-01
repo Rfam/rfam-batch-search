@@ -32,7 +32,11 @@ class SubmittedRequest(BaseModel):
     @classmethod
     def validate_header(cls, header: str) -> str:
         if ";" in header or "\\" in header or "!" in header or "*" in header:
-            raise ValueError(f"Invalid character in header")
+            raise ValueError(
+                "Invalid characters in header. Your file will be rejected if "
+                "its header lines contain any of the following characters "
+                " ; \\ ! *"
+            )
         return header
 
     @classmethod
@@ -42,13 +46,16 @@ class SubmittedRequest(BaseModel):
 
         # Check sequence length
         if len(raw_sequence) > 7000:
-            raise ValueError("Sequence length must be less than 7,000 nucleotides")
+            raise ValueError(
+                "Sequence length must be less than or equal to 7,000 nucleotides"
+            )
 
         # Check for invalid characters
         invalid_chars = re.findall(r"[^ACGTURYSWMKBDHNV]", raw_sequence.upper())
         if invalid_chars:
             raise ValueError(
-                f"Invalid characters in sequence: {', '.join(invalid_chars)}"
+                f"Invalid characters in sequence. Please remove the following "
+                f"characters: {', '.join(invalid_chars)}"
             )
 
         # Check for gap characters
