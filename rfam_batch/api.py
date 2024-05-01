@@ -30,8 +30,13 @@ class SubmittedRequest(BaseModel):
     sequences: ty.List[str]
 
     @classmethod
-    def validate(cls, sequence: str) -> str:
-        # Remove FASTA headers and apply checks
+    def validate_header(cls, header: str) -> str:
+        if ";" in header or "\\" in header or "!" in header or "*" in header:
+            raise ValueError(f"Invalid character in header")
+        return header
+
+    @classmethod
+    def validate_sequence(cls, sequence: str) -> str:
         sequence_lines = sequence.split("\n")
         raw_sequence = "".join(sequence_lines).upper()
 
@@ -56,6 +61,7 @@ class SubmittedRequest(BaseModel):
     def parse(cls, raw: str) -> SubmittedRequest:
         sequences = []
         current_sequence = ""
+        header = ""
         lines = raw.strip().split("\n")
 
         for line in lines:
@@ -64,16 +70,17 @@ class SubmittedRequest(BaseModel):
             # Check if the line starts with ">"
             if line.startswith(">"):
                 if current_sequence:
-                    raw_sequence = cls.validate(current_sequence)
-                    sequences.append(raw_sequence)
+                    raw_sequence = cls.validate_sequence(current_sequence)
+                    sequences.append(header + "\n" + raw_sequence)
+                header = cls.validate_header(line)
                 current_sequence = ""
             else:
                 current_sequence += line
 
         # Add the last sequence to the list after the loop
         if current_sequence:
-            raw_sequence = cls.validate(current_sequence)
-            sequences.append(raw_sequence)
+            raw_sequence = cls.validate_sequence(current_sequence)
+            sequences.append(header + "\n" + raw_sequence)
 
         return cls(sequences=sequences)
 
