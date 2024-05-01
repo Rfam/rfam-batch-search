@@ -163,7 +163,7 @@ async def submit_job(
 
     query = jd.Query()
     query.id = id
-    query.sequences = parsed.sequences
+    query.sequences = "\n".join(parsed.sequences)
     query.email_address = email_address
 
     try:
