@@ -45,7 +45,7 @@ class SubmittedRequest(BaseModel):
             raise ValueError("Sequence length must be less than 7,000 nucleotides")
 
         # Check for invalid characters
-        invalid_chars = re.findall(r"[^ACGTURYSWMKBDHN]", raw_sequence.upper())
+        invalid_chars = re.findall(r"[^ACGTURYSWMKBDHNV]", raw_sequence.upper())
         if invalid_chars:
             raise ValueError(
                 f"Invalid characters in sequence: {', '.join(invalid_chars)}"
