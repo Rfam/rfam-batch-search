@@ -52,8 +52,8 @@ class SubmittedRequest(BaseModel):
             )
 
         # Check for gap characters
-        if "." in raw_sequence or "-" in raw_sequence:
-            raise ValueError("Gap characters '.' and '-' are not allowed")
+        if "." in raw_sequence or "-" in raw_sequence or "*" in raw_sequence:
+            raise ValueError("Gap characters '.', '-' and '*' are not allowed")
 
         return raw_sequence
 
