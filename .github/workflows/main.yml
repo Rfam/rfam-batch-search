@@ -57,7 +57,7 @@ jobs:
 
   final-notification:
     runs-on: ubuntu-latest
-    needs: [push_image_to_dockerhub, push_image_to_github]
+    needs: push-image-to-github
     steps:
       - uses: actions/checkout@v3
 
