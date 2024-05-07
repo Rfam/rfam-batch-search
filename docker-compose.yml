@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  # FastAPI
+  web:
+    build: .
+    command: gunicorn -c gunicorn/gunicorn_conf.py -b 0.0.0.0:8000 main:app
+    ports:
+      - "8000:8000"
+    networks:
+      - nginx-network
+
+  # Nginx server
+  nginx:
+    image: nginx:1.26.0-alpine
+    ports:
+      - 80:80
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - web
+    networks:
+      - nginx-network
+
+networks:
+  nginx-network:
+    driver: bridge
