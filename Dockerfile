@@ -23,6 +23,15 @@ RUN poetry export -f requirements.txt --without-hashes -o /tmp/requirements.txt
 # create batch search image
 FROM python:3.11-slim-bullseye as batch-search
 
+# install extra packages
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y \
+        mailutils \
+        postfix \
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -40,6 +49,10 @@ WORKDIR $HOME
 # install requirements
 COPY --from=poetry /tmp/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# copy the postfix settings
+COPY postfix/main.cf /etc/postfix/main.cf
+COPY postfix/mailname /etc/mailname
 
 # copy project
 COPY . .
