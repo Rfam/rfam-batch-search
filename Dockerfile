@@ -1,5 +1,5 @@
 # create image to export requirements
-FROM python:3.11-slim AS poetry
+FROM python:3.11-slim-bullseye AS poetry
 
 # build dependencies
 RUN apt-get update \
@@ -21,7 +21,7 @@ RUN poetry export -f requirements.txt --without-hashes -o /tmp/requirements.txt
 
 
 # create batch search image
-FROM python:3.11-slim as batch-search
+FROM python:3.11-slim-bullseye as batch-search
 
 ENV \
     PYTHONUNBUFFERED=1 \
