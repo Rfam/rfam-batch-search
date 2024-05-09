@@ -2,7 +2,7 @@
 bind = "unix:/srv/rfam-batch-search/gunicorn.sock"
 
 # Worker Options
-workers = 2
+workers = 1
 worker_class = "uvicorn.workers.UvicornWorker"
 
 # Logging Options
