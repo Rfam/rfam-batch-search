@@ -1,8 +1,10 @@
+from multiprocessing import cpu_count
+
 # Socket Path
 bind = "unix:/srv/rfam-batch-search/gunicorn.sock"
 
 # Worker Options
-workers = 1
+workers = cpu_count()
 worker_class = "uvicorn.workers.UvicornWorker"
 
 # Logging Options
