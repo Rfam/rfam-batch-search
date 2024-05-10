@@ -103,7 +103,6 @@ async def fetch_status(job_id: str) -> PlainTextResponse:
 
 async def send_email(email_address: str, job_id: str, status: str, tblout: str):
     sender_email = os.getenv("EMAIL")
-    password = os.getenv("PASSWORD")
     server = os.getenv("SERVER")
     port = os.getenv("PORT")
 
@@ -123,7 +122,6 @@ async def send_email(email_address: str, job_id: str, status: str, tblout: str):
         msg.attach(MIMEText(body, "plain"))
 
     async with aiosmtplib.SMTP(hostname=server, port=port) as smtp:
-        await smtp.login(sender_email, password)
         await smtp.send_message(msg)
 
 
