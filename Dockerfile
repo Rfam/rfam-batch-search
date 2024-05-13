@@ -28,8 +28,8 @@ ENV \
     PYTHONDONTWRITEBYTECODE=1 \
     HOME="/srv/rfam-batch-search"
 
-# create folders
-RUN mkdir -p $HOME && mkdir /var/log/gunicorn
+# create folder and log file
+RUN mkdir -p $HOME && touch /var/log/gunicorn.log
 
 # create user
 RUN useradd -m -d $HOME -s /bin/bash rfam
@@ -43,10 +43,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # copy project
 COPY . .
-RUN chown -R rfam:rfam /srv && chown -R rfam:rfam /var/log/gunicorn
+RUN chown -R rfam:rfam /srv && chown rfam:rfam /var/log/gunicorn.log
 
 # set user
 USER rfam
 
 # run the FastAPI app
-CMD [ "gunicorn", "-c", "gunicorn/gunicorn_conf.py", "-b", "0.0.0.0:8000", "main:app"]
+CMD [ "gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "-b", "0.0.0.0:8000", "--capture-output", "--access-logfile", "-", "--error-logfile", "/var/log/gunicorn.log", "main:app"]

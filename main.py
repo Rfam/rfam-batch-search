@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import aiosmtplib
 import asyncio
+import logging
 import os
 import typing as ty
+import uvicorn
 
 from dotenv import load_dotenv
 from email.mime.multipart import MIMEMultipart
@@ -18,7 +20,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
-import uvicorn
+from logging.handlers import RotatingFileHandler
 
 from rfam_batch import job_dispatcher as jd
 from rfam_batch import api
@@ -44,6 +46,25 @@ app.add_middleware(
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Configure logging
+log_formatter = logging.Formatter("%(asctime)s %(levelname)s %(module)s: %(message)s")
+root_logger = logging.getLogger()
+
+# Log to stdout
+stdout_handler = logging.StreamHandler()
+stdout_handler.setFormatter(log_formatter)
+root_logger.addHandler(stdout_handler)
+
+# Log to file
+file_handler = RotatingFileHandler(
+    filename="/var/log/gunicorn.log", maxBytes=1000000, backupCount=5
+)
+file_handler.setFormatter(log_formatter)
+root_logger.addHandler(file_handler)
+
+# Set log level
+root_logger.setLevel(logging.INFO)
 
 
 @app.on_event("shutdown")
