@@ -106,6 +106,22 @@ async def get_tblout(job_id: str) -> PlainTextResponse:
     return response
 
 
+@app.get("/result/{job_id}/out", response_class=PlainTextResponse)
+async def get_out(job_id: str) -> PlainTextResponse:
+    try:
+        out = await jd.JobDispatcher().cmscan_result(job_id)
+    except HTTPException as e:
+        raise e
+
+    # Create a PlainTextResponse with CORS headers
+    response = PlainTextResponse(content=out)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+
+    return response
+
+
 @app.get("/status/{job_id}", response_class=PlainTextResponse)
 async def fetch_status(job_id: str) -> PlainTextResponse:
     try:
