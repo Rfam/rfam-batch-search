@@ -49,4 +49,4 @@ RUN chown -R rfam:rfam /srv && chown rfam:rfam /var/log/gunicorn.log
 USER rfam
 
 # run the FastAPI app
-CMD [ "gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "-b", "0.0.0.0:8000", "--capture-output", "--access-logfile", "-", "--error-logfile", "/var/log/gunicorn.log", "main:app"]
+CMD [ "gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "4", "-b", "0.0.0.0:8000", "--capture-output", "--access-logfile", "-", "--error-logfile", "-", "main:app"]
