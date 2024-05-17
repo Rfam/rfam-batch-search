@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import aiosmtplib
 import asyncio
-import logging
 import os
 import typing as ty
 import uvicorn
@@ -20,8 +19,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
-from logging.handlers import RotatingFileHandler
-
+from logger import logger
 from rfam_batch import job_dispatcher as jd
 from rfam_batch import api
 
@@ -47,25 +45,6 @@ app.add_middleware(
 # Load environment variables from .env file
 load_dotenv()
 
-# Configure logging
-log_formatter = logging.Formatter("%(asctime)s %(levelname)s %(module)s: %(message)s")
-root_logger = logging.getLogger()
-
-# Log to stdout
-stdout_handler = logging.StreamHandler()
-stdout_handler.setFormatter(log_formatter)
-root_logger.addHandler(stdout_handler)
-
-# Log to file
-file_handler = RotatingFileHandler(
-    filename="/var/log/gunicorn.log", maxBytes=1000000, backupCount=5
-)
-file_handler.setFormatter(log_formatter)
-root_logger.addHandler(file_handler)
-
-# Set log level
-root_logger.setLevel(logging.INFO)
-
 
 @app.on_event("shutdown")
 async def on_shutdown() -> None:
@@ -85,6 +64,7 @@ async def get_result(job_id: str) -> api.CmScanResult | api.MultipleSequences:
         tblout = await jd.JobDispatcher().cmscan_tblout(job_id)
         cm_scan_result = api.parse_cm_scan_result(out, sequence, tblout, job_id)
     except HTTPException as e:
+        logger.error(f"Error fetching results for {job_id}. Error: {e}")
         raise e
 
     return cm_scan_result
@@ -95,6 +75,7 @@ async def get_tblout(job_id: str) -> PlainTextResponse:
     try:
         tblout = await jd.JobDispatcher().cmscan_tblout(job_id)
     except HTTPException as e:
+        logger.error(f"Error fetching TBLOUT results for {job_id}. Error: {e}")
         raise e
 
     # Create a PlainTextResponse with CORS headers
@@ -111,6 +92,7 @@ async def get_out(job_id: str) -> PlainTextResponse:
     try:
         out = await jd.JobDispatcher().cmscan_result(job_id)
     except HTTPException as e:
+        logger.error(f"Error fetching OUT results for {job_id}. Error: {e}")
         raise e
 
     # Create a PlainTextResponse with CORS headers
@@ -127,6 +109,7 @@ async def fetch_status(job_id: str) -> PlainTextResponse:
     try:
         status = await jd.JobDispatcher().cmscan_status(job_id)
     except HTTPException as e:
+        logger.error(f"Error fetching job status for {job_id}. Error: {e}")
         raise e
 
     # Create a PlainTextResponse with CORS headers
@@ -194,6 +177,7 @@ async def submit_job(
         content = await sequence_file.read()
         parsed = api.SubmittedRequest.parse(content.decode())
     except ValueError as e:
+        logger.error(f"Error parsing sequence. Error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
     query = jd.Query()
@@ -203,7 +187,9 @@ async def submit_job(
 
     try:
         job_id = await jd.JobDispatcher().submit_cmscan_job(query)
+        logger.info(f"Job submitted: {job_id}")
     except HTTPException as e:
+        logger.error(f"Error submitting job. Error: {e}")
         raise e
 
     # Background task to check status
