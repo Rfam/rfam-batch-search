@@ -165,13 +165,18 @@ async def check_status(email_address: str, job_id: str):
 @app.post("/submit-job")
 async def submit_job(
     *,
-    email_address: ty.Annotated[str, Form()],
-    sequence_file: UploadFile = File(...),
+    email_address: ty.Annotated[ty.Optional[str], Form()] = None,
+    sequence_file: UploadFile = File(None),
     id: ty.Optional[str] = Form(None),
     request: Request,
     background_tasks: BackgroundTasks,
 ) -> api.SubmissionResponse:
     url = request.url
+
+    if sequence_file is None:
+        raise HTTPException(
+            status_code=400, detail="Please upload a file in FASTA format"
+        )
 
     try:
         content = await sequence_file.read()
@@ -183,17 +188,20 @@ async def submit_job(
     query = jd.Query()
     query.id = id
     query.sequences = "\n".join(parsed.sequences)
-    query.email_address = email_address
+    query.email_address = email_address if email_address else "dummy@email.com"
 
     try:
         job_id = await jd.JobDispatcher().submit_cmscan_job(query)
-        logger.info(f"Job submitted: {job_id}")
     except HTTPException as e:
         logger.error(f"Error submitting job. Error: {e}")
         raise e
 
-    # Background task to check status
-    background_tasks.add_task(check_status, email_address, job_id)
+    if email_address:
+        # Background task to check status
+        background_tasks.add_task(check_status, email_address, job_id)
+        logger.info(f"Job submitted: {job_id}")
+    else:
+        logger.info(f"Job submitted programmatically: {job_id}")
 
     return api.SubmissionResponse.build(
         result_url=f"{url.scheme}://{url.netloc}/result/{job_id}",
