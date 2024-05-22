@@ -173,7 +173,7 @@ async def submit_job(
 ) -> api.SubmissionResponse:
     url = request.url
 
-    if sequence_file is None:
+    if sequence_file is None or sequence_file.filename == "":
         raise HTTPException(
             status_code=400, detail="Please upload a file in FASTA format"
         )
