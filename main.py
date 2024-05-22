@@ -204,7 +204,7 @@ async def submit_job(
         logger.info(f"Job submitted programmatically: {job_id}")
 
     return api.SubmissionResponse.build(
-        result_url=f"{url.scheme}://{url.netloc}/result/{job_id}",
+        result_url=f"https://{url.netloc}/result/{job_id}",
         job_id=job_id,
     )
 
