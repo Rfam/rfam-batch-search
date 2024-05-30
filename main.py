@@ -178,6 +178,7 @@ async def submit_job(
             status_code=400, detail="Please upload a file in FASTA format"
         )
 
+    # Validate the FASTA file
     try:
         content = await sequence_file.read()
         parsed = api.SubmittedRequest.parse(content.decode())
@@ -190,11 +191,8 @@ async def submit_job(
     query.sequences = "\n".join(parsed.sequences)
     query.email_address = email_address if email_address else "dummy@email.com"
 
-    try:
-        job_id = await jd.JobDispatcher().submit_cmscan_job(query)
-    except HTTPException as e:
-        logger.error(f"Error submitting job. Error: {e}")
-        raise e
+    # Submit to Job Dispatcher
+    job_id = await jd.JobDispatcher().submit_cmscan_job(query)
 
     if email_address:
         # Background task to check status

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import aiohttp
+import httpx
+import re
 import typing as ty
 
-import aiohttp
 from fastapi import HTTPException
+from logger import logger
 
 INFERNAL_CMSCAN_BASE_URL = "https://www.ebi.ac.uk/Tools/services/rest/infernal_cmscan"
 
@@ -46,16 +49,41 @@ class JobDispatcher:
     async def submit_cmscan_job(self, data: Query) -> str:
         try:
             query = data.payload()
-            async with self.client.post(
-                f"{INFERNAL_CMSCAN_BASE_URL}/run", data=query
-            ) as r:
-                response_text = await r.text()
-                return response_text
-                # return JobSubmitResult(job_id=response_text)
-        except Exception as e:
-            print(f"An Exception occurred: {e}")
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{INFERNAL_CMSCAN_BASE_URL}/run", data=query
+                )
+                response.raise_for_status()
+                return response.text
+        except httpx.RequestError as e:
             raise HTTPException(
-                status_code=500, detail=f"An unexpected error occurred: {e}"
+                status_code=500,
+                detail=f"An error occurred while requesting {e.request.url!r}: {str(e)}",
+            )
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 400 and "<description>" in response.text:
+                # Extract and display the Job Dispatcher error message, e.g.:
+                # <error>
+                #  <description>Please enter a valid email address</description>
+                # </error>
+                text = re.search(
+                    r"<description>(.*?)</description>", response.text, re.DOTALL
+                )
+                logger.error(f"JD error message: {text.group(1)}")
+                raise HTTPException(status_code=400, detail=text.group(1))
+            else:
+                raise HTTPException(
+                    status_code=e.response.status_code,
+                    detail=f"Error {e.response.status_code} while requesting "
+                    f"{e.request.url!r}: {e.response.text}",
+                )
+        except httpx.TimeoutException as e:
+            raise HTTPException(
+                status_code=504, detail=f"Request to {e.request.url!r} timed out."
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"An unexpected error occurred: {str(e)}"
             )
 
     async def cmscan_result(self, job_id: str) -> str:
