@@ -5,19 +5,19 @@ from rfam_batch.api import *
 
 @pytest.fixture
 def out_text():
-    with open("example_files/out", "r") as file:
+    with open("./tests/example_files/out", "r") as file:
         return file.read()
 
 
 @pytest.fixture
 def sequence():
-    with open("example_files/sequence", "r") as file:
+    with open("./tests/example_files/sequence", "r") as file:
         return file.read()
 
 
 @pytest.fixture
 def tblout_text():
-    with open("example_files/tblout", "r") as file:
+    with open("./tests/example_files/tblout", "r") as file:
         return file.read()
 
 
