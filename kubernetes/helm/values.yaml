@@ -7,7 +7,7 @@ nginxTargetPort: 80
 nginxReplicas: 2
 nginxRequestsMemory: "2000Mi"
 nginxRequestsCPU: "1000m"
-nginxLimitsMemory: "4000Mi"
+nginxLimitsMemory: "2000Mi"
 
 # Rfam batch search
 branch: main
@@ -15,4 +15,4 @@ port: 8000
 replicas: 4
 requestsMemory: "4000Mi"
 requestsCPU: "1000m"
-limitsMemory: "6000Mi"
+limitsMemory: "4000Mi"
