@@ -3,6 +3,28 @@
 The Rfam Batch Search can be used to submit a sequence to the Job Dispatcher
 service that runs the Infernal cmscan software
 
+## Installation on the local machine
+
+1. Clone Git repository:
+
+  ```
+  git clone https://github.com/Rfam/rfam-batch-search.git
+  ```
+
+2. Run Docker Compose:
+
+  ```
+  docker-compose up --build
+  ```
+
+## Tests
+
+To run unit tests, use
+
+  ```
+  docker exec rfam-batch-search_web_1 pytest ./tests/test_api_file.py
+  ```
+
 ## Manual deployment in production
 
 **Requirements**
