@@ -1,9 +1,8 @@
 from __future__ import annotations
 import re
-
 import typing as ty
-import datetime as dt
 
+from datetime import datetime
 from pydantic import BaseModel, Field
 
 TIMESTAMP_FORMAT = ""
@@ -12,15 +11,15 @@ SEARCH_MULTIPLIER = 0
 
 
 class SubmissionResponse(BaseModel):
-    # result_url: str = Field(alias="resultURL")
+    result_url: str = Field(alias="resultURL")
     # opened: dt.datetime
     # estimated_time: float = Field(alias="estimatedTime")
     job_id: str = Field(alias="jobId")
 
     @classmethod
-    def build(cls, job_id: str) -> "SubmissionResponse":
+    def build(cls, job_id: str, result_url: str) -> "SubmissionResponse":
         return cls(
-            # resultURL=result_url,
+            resultURL=result_url,
             # opened=opened,
             # estimatedTime=estimated_time,
             jobId=job_id,
@@ -31,9 +30,45 @@ class SubmittedRequest(BaseModel):
     sequences: ty.List[str]
 
     @classmethod
+    def validate_header(cls, header: str) -> str:
+        if ";" in header or "\\" in header or "!" in header or "*" in header:
+            raise ValueError(
+                "Invalid characters in header. Your file will be rejected if "
+                "its header lines contain any of the following characters "
+                " ; \\ ! *"
+            )
+        return header
+
+    @classmethod
+    def validate_sequence(cls, sequence: str) -> str:
+        sequence_lines = sequence.split("\n")
+        raw_sequence = "".join(sequence_lines).upper()
+
+        # Check sequence length
+        if len(raw_sequence) > 7000:
+            raise ValueError(
+                "Sequence length must be less than or equal to 7,000 nucleotides"
+            )
+
+        # Check for invalid characters
+        invalid_chars = re.findall(r"[^ACGTURYSWMKBDHNV]", raw_sequence.upper())
+        if invalid_chars:
+            raise ValueError(
+                f"Invalid characters in sequence. Please remove the following "
+                f"characters: {', '.join(invalid_chars)}"
+            )
+
+        # Check for gap characters
+        if "." in raw_sequence or "-" in raw_sequence or "*" in raw_sequence:
+            raise ValueError("Gap characters '.', '-' and '*' are not allowed")
+
+        return raw_sequence
+
+    @classmethod
     def parse(cls, raw: str) -> SubmittedRequest:
         sequences = []
         current_sequence = ""
+        header = ""
         lines = raw.strip().split("\n")
 
         for line in lines:
@@ -42,217 +77,176 @@ class SubmittedRequest(BaseModel):
             # Check if the line starts with ">"
             if line.startswith(">"):
                 if current_sequence:
-                    # Remove FASTA headers and apply checks
-                    sequence_lines = current_sequence.split("\n")
-                    raw_sequence = "".join(sequence_lines).upper()
-
-                    # Check sequence length
-                    if len(raw_sequence) > 7000:
-                        raise ValueError(
-                            "Sequence length must be less than 7,000 nucleotides"
-                        )
-
-                    # Check for invalid characters
-                    invalid_chars = re.findall(
-                        r"[^ACGTURYSWMKBDHN]", raw_sequence.upper()
-                    )
-                    if invalid_chars:
-                        raise ValueError(
-                            "Invalid characters in sequence: {}".format(
-                                ", ".join(invalid_chars)
-                            )
-                        )
-
-                    # Check for gap characters
-                    if "." in raw_sequence or "-" in raw_sequence:
-                        raise ValueError("Gap characters '.' and '-' are not allowed")
-
-                    # Add the validated sequence to the list
-                    sequences.append(raw_sequence)
+                    raw_sequence = cls.validate_sequence(current_sequence)
+                    sequences.append(header + "\n" + raw_sequence)
+                header = cls.validate_header(line)
                 current_sequence = ""
             else:
                 current_sequence += line
 
         # Add the last sequence to the list after the loop
         if current_sequence:
-            # Apply checks to the last sequence
-            sequence_lines = current_sequence.split("\n")
-            raw_sequence = "".join(sequence_lines).upper()
-
-            # Check sequence length
-            if len(raw_sequence) > 7000:
-                raise ValueError("Sequence length must be less than 7,000 nucleotides")
-
-            # Check for invalid characters
-            invalid_chars = re.findall(r"[^ACGTURYSWMKBDHN]", raw_sequence.upper())
-            if invalid_chars:
-                raise ValueError(
-                    "Invalid characters in sequence: {}".format(
-                        ", ".join(invalid_chars)
-                    )
-                )
-
-            # Check for gap characters
-            if "." in raw_sequence or "-" in raw_sequence:
-                raise ValueError("Gap characters '.' and '-' are not allowed")
-
-            # Add the validated last sequence to the list
-            sequences.append(raw_sequence)
+            raw_sequence = cls.validate_sequence(current_sequence)
+            sequences.append(header + "\n" + raw_sequence)
 
         return cls(sequences=sequences)
 
-class HitAlignment(BaseModel):
-    rank: int
-    e_value: float
-    score: float
-    bias: float
-    model_name: str
-    start: int
-    end: int
-    mdl: str
-    trunc: str
-    gc: float
-    description: str
-
-class Hit(BaseModel):
-    rank: int
-    e_value: float
-    score: float
-    bias: float
-    model_name: str
-    start: int
-    end: int
-    mdl: str
-    trunc: str
-    gc: float
-    description: str
 
 class Alignment(BaseModel):
-    sequence_name: str
-    sequence: str
-    model_name: str
-    sequence_start: int
-    sequence_end: int
-    model_start: int
-    model_end: int
-    acc: float
-    trunc: str
-    gc: float
+    nc: str
+    ss: str
+    hit_seq: str
+    match: str
+    user_seq: str
+    pp: str
+
+
+class Hit(BaseModel):
+    id: str
+    acc: str
+    start: int
+    end: int
+    strand: str
+    GC: float
+    score: float
+    E: float
+    alignment: Alignment
+
 
 class CmScanResult(BaseModel):
-    query: str
-    hit_scores: ty.List[Hit]
-    hit_alignments: ty.List[Alignment]
+    searchSequence: str
+    numHits: int
+    jobId: str
+    opened: str
+    started: str
+    closed: str
+    hits: ty.Dict[str, ty.List[Hit]]
 
-# Function to parse the CmScanResult format into the models
-def parse_cm_scan_result(result_text: str) -> CmScanResult:
-    lines = result_text.split('\n')
-    query = lines[9].split()[-1]
 
-    # Initialize empty lists for hit_scores and hit_alignments
-    hit_scores = []
-    hit_alignments = []
+class MultipleSequences(BaseModel):
+    opened: str
+    hits: ty.List
 
-    # Iterate through lines to extract data
-    line_index = 12  # Start of hit scores
+
+def parse_tblout_file(tblout_text: str) -> ty.Tuple[str, ty.List]:
+    """
+    This function parses the tblout file and extracts the necessary data
+    :param tblout_text: tblout file contents
+    :return: date and hit list
+    """
+    date = ""
+    hit_list = []
+
+    for line in tblout_text.split("\n"):
+        if not line.startswith("#") and not line == "":
+            line = re.sub(" +", " ", line).strip().split(" ")
+            hit_list.append(
+                {
+                    "id": line[0],
+                    "acc": line[1],
+                    "start": int(line[7]),
+                    "end": int(line[8]),
+                    "strand": line[9],
+                    "GC": float(line[12]),
+                    "score": float(line[14]),
+                    "E": float(line[15]),
+                }
+            )
+        elif line.startswith("# Date:"):
+            date_str = line.split("# Date:")[1].strip()
+            date_obj = datetime.strptime(date_str, "%a %b %d %H:%M:%S %Y")
+            date = date_obj.strftime("%Y-%m-%d %H:%M:%S")
+
+    return date, hit_list
+
+
+def parse_cm_scan_result(
+    out_text: str, sequence: str, tblout_text: str, job_id: str
+) -> CmScanResult | MultipleSequences:
+    """
+    Function to parse the CmScanResult/MultipleSequences format into the models
+    :param out_text: out file contents
+    :param sequence: sequence file contents
+    :param tblout_text: tblout file contents
+    :param job_id: ID created by Infernal cmscan
+    :return: CmScanResult or MultipleSequences
+    """
+    if sequence.count(">") > 1:
+        # Show only tblout file results
+        date, hit_list = parse_tblout_file(tblout_text)
+        return MultipleSequences(opened=date, hits=hit_list)
+
+    # Get sequence
+    search_sequence = sequence.split("\n")
+    if search_sequence[0].startswith(">"):
+        search_sequence = "".join(search_sequence[1:])
+    else:
+        search_sequence = "".join(search_sequence)
+
+    # Get data from tblout_text
+    date, hit_list = parse_tblout_file(tblout_text)
+    closed = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if date != "" else ""
+
+    # Get number of CM hits reported
+    num_hits = re.search(r"Total CM hits reported:\s+(\d+)\s", out_text)
+    num_hits = int(num_hits.group(1)) if num_hits else 0
+
+    # Iterate through lines to extract alignment from out_text
+    lines = out_text.split("\n")
+    line_index = 16  # Start of hit scores
     while line_index < len(lines):
-        if lines[line_index].startswith('>>'):
-            line_index += 1  # Skip the header line
-            while line_index < len(lines) and not lines[line_index].strip().startswith("rank"):
-                parts = lines[line_index].strip().split()
-                if len(parts) == 11:
-                    rank, e_value, score, bias, model_name, start, end, mdl, trunc, gc, description = parts
-                    hit_scores.append(Hit(
-                        rank=int(rank),
-                        e_value=float(e_value),
-                        score=float(score),
-                        bias=float(bias),
-                        model_name=model_name,
-                        start=int(start),
-                        end=int(end),
-                        mdl=mdl,
-                        trunc=trunc,
-                        gc=float(gc),
-                        description=description,
-                    ))
-                line_index += 1
-        elif lines[line_index].startswith("rank"):
-            line_index += 1  # Skip the header line
-            while line_index < len(lines) and not lines[line_index].strip().startswith(">>"):
-                parts = lines[line_index].strip().split()
-                if len(parts) == 10:
-                    rank, e_value, score, bias, model_name, mdl_from, mdl_to, seq_from, seq_to, acc = parts
-                    sequence_name, model_name = lines[line_index].strip().split("  ")
-                    model_name = model_name.strip()
-                    sequence_name = sequence_name.strip()
-                    alignment = Alignment(
-                        sequence_name=sequence_name,
-                        sequence=lines[line_index + 1].strip(),
-                        model_name=model_name,
-                        sequence_start=int(seq_from),
-                        sequence_end=int(seq_to),
-                        model_start=int(mdl_from),
-                        model_end=int(mdl_to),
-                        acc=float(acc),
-                        trunc="no",
-                        gc=0.0,
-                    )
-                    hit_alignments.append(alignment)
-                line_index += 2
+        if lines[line_index].startswith(">>"):
+            line_index += 3  # Skip unnecessary lines
+            fields = lines[line_index].strip().split()
+            start = int(fields[9])
+            end = int(fields[10])
+            score = float(fields[3])
+            e_value = float(fields[2])
+
+            line_index += 2  # Start of alignment
+            # Alignments have a fixed number of lines, 6 in total
+            alignment = Alignment(
+                nc="#NC " + lines[line_index].split("NC")[0],
+                ss="#SS " + lines[line_index + 1].split("CS")[0],
+                hit_seq="#CM " + " ".join(lines[line_index + 2].split()[1:]),
+                match="#MATCH " + lines[line_index + 3],
+                user_seq="#SEQ " + " ".join(lines[line_index + 4].split()[1:]),
+                pp="#PP " + lines[line_index + 5].split("PP")[0],
+            )
+            line_index += 6  # End of alignment
+
+            for item in hit_list:
+                if (
+                    item["start"] == start
+                    and item["end"] == end
+                    and item["score"] == score
+                    and item["E"] == e_value
+                ):
+                    item["alignment"] = alignment
+                    break
+
+        elif lines[line_index] == "Internal CM pipeline statistics summary:":
+            # No more alignments to check
+            break
+
         else:
             line_index += 1
 
-    return CmScanResult(query=query, hit_scores=hit_scores, hit_alignments=hit_alignments)
+    # Rearrange hits according to the pattern expected by the user
+    hits = {}
+    for item in hit_list:
+        id_value = item["id"]
+        if id_value not in hits:
+            hits[id_value] = []
 
+        hits[id_value].append(Hit(**item))
 
-
-# class InfernalAlignment(BaseModel):
-#     user_seq: str
-#     hit_seq: str
-#     ss: str
-#     match: str
-#     pp: str
-#     nc: str
-
-
-# class InfernalHit(BaseModel):
-#     score: str
-#     e: str = Field(alias="E")
-#     acc: str
-#     end: str
-#     alignment: InfernalAlignment
-#     strand: str
-#     id: str
-#     gc: str = Field(alias="GC")
-#     start: str
-
-
-# class CmScanResult(BaseModel):
-    closed: dt.datetime
-    search_sequence: str = Field(alias="searchSequence")
-    hits: ty.Dict[str, InfernalHit]
-    opened: dt.datetime
-    num_hits: int = Field(alias="numHits")
-    started: dt.datetime
-    job_id: str = Field(alias="jobId")
-
-    @classmethod
-    def build(
-        cls,
-        closed: dt.datetime,
-        search_sequence: str,
-        hits: ty.Dict[str, InfernalHit],
-        opened: dt.datetime,
-        num_hits: int,
-        started: dt.datetime,
-        job_id: str,
-    ) -> "CmScanResult":
-        return cls(
-            closed=closed,
-            searchSequence=search_sequence,
-            hits=hits,
-            opened=opened,
-            numHits=num_hits,
-            started=started,
-            jobId=job_id,
-        )
+    return CmScanResult(
+        searchSequence=search_sequence,
+        numHits=num_hits,
+        jobId=job_id,
+        opened=date,
+        started=date,
+        closed=closed,
+        hits=hits,
+    )

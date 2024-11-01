@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import typing as ty
-import datetime as dt
-
 import aiohttp
-from fastapi import HTTPException
-from pydantic import BaseModel
+import httpx
+import re
+import typing as ty
 
-from rfam_batch import api
+from fastapi import HTTPException
+from logger import logger
 
 INFERNAL_CMSCAN_BASE_URL = "https://www.ebi.ac.uk/Tools/services/rest/infernal_cmscan"
 
@@ -32,35 +31,6 @@ class JobSubmitResult:
     job_id: str
 
 
-# class FinishedJob:
-#     async def infernal_results(self) -> ty.Optional[api.CmScanResult]:
-#         try:
-#             # Use the JobDispatcher to fetch the status of the job
-#             job_status = await JobDispatcher().status(self.job_id)
-
-#             # Check if the job is finished (you can customize this condition)
-#             if job_status.status == "done":
-#                 # Use the JobDispatcher to fetch the results
-#                 results = await JobDispatcher().fetch_results(self.job_id)
-
-#                 # If results are available, create a CmScanResult instance and return it
-#                 return api.CmScanResult.build(
-#                     closed=results.closed,
-#                     search_sequence=results.search_sequence,
-#                     hits=results.hits,
-#                     opened=results.opened,
-#                     num_hits=results.num_hits,
-#                     started=results.started,
-#                     job_id=results.job_id,
-#                 )
-#         except Exception as e:
-#             # Handle any exceptions or errors during the process
-#             print(f"Failed to retrieve infernal results: {str(e)}")
-
-#         # If results are not available or an error occurs, return None
-#         return None
-
-
 class JobDispatcher:
     client: ty.Optional[aiohttp.ClientSession] = None
 
@@ -79,17 +49,67 @@ class JobDispatcher:
     async def submit_cmscan_job(self, data: Query) -> str:
         try:
             query = data.payload()
-            async with self.client.post(f"{INFERNAL_CMSCAN_BASE_URL}/run", data=query) as r:
-                response_text = await r.text()
-                return response_text
-                # return JobSubmitResult(job_id=response_text)
-        except Exception as e:
-            print(f"An Exception occurred: {e}")
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{INFERNAL_CMSCAN_BASE_URL}/run", data=query
+                )
+                response.raise_for_status()
+                return response.text
+        except httpx.RequestError as e:
             raise HTTPException(
-                status_code=500, detail=f"An unexpected error occurred: {e}"
+                status_code=500,
+                detail=f"An error occurred while requesting {e.request.url!r}: {str(e)}",
+            )
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 400 and "<description>" in response.text:
+                # Extract and display the Job Dispatcher error message, e.g.:
+                # <error>
+                #  <description>Please enter a valid email address</description>
+                # </error>
+                text = re.search(
+                    r"<description>(.*?)</description>", response.text, re.DOTALL
+                )
+                logger.error(f"JD error message: {text.group(1)}")
+                raise HTTPException(status_code=400, detail=text.group(1))
+            else:
+                raise HTTPException(
+                    status_code=e.response.status_code,
+                    detail=f"Error {e.response.status_code} while requesting "
+                    f"{e.request.url!r}: {e.response.text}",
+                )
+        except httpx.TimeoutException as e:
+            raise HTTPException(
+                status_code=504, detail=f"Request to {e.request.url!r} timed out."
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"An unexpected error occurred: {str(e)}"
             )
 
-    async def cmscan_result(self, job_id: str):
-        async with self.client.get(f"{INFERNAL_CMSCAN_BASE_URL}/result/{job_id}/out") as r:
-            response_text = await r.text()
-            return response_text
+    async def cmscan_result(self, job_id: str) -> str:
+        async with self.client.get(
+            f"{INFERNAL_CMSCAN_BASE_URL}/result/{job_id}/out"
+        ) as r:
+            if r.status != 200:
+                return ""
+            return await r.text()
+
+    async def cmscan_sequence(self, job_id: str) -> str:
+        async with self.client.get(
+            f"{INFERNAL_CMSCAN_BASE_URL}/result/{job_id}/sequence"
+        ) as r:
+            if r.status != 200:
+                return ""
+            return await r.text()
+
+    async def cmscan_tblout(self, job_id: str) -> str:
+        async with self.client.get(
+            f"{INFERNAL_CMSCAN_BASE_URL}/result/{job_id}/tblout"
+        ) as r:
+            if r.status != 200:
+                return ""
+            return await r.text()
+
+    async def cmscan_status(self, job_id: str) -> str:
+        async with self.client.get(f"{INFERNAL_CMSCAN_BASE_URL}/status/{job_id}") as r:
+            return await r.text()

@@ -1,0 +1,13 @@
+__pycache__/
+.idea/
+*.pyc
+*.pyo
+*.retry
+
+.env
+.venv
+kubernetes/secrets
+tests/.pytest_cache
+terraform/.terraform
+terraform/providers.tf
+terraform/rfam_rsa*

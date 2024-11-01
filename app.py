@@ -9,6 +9,7 @@ INFERNAL_CMSCAN_BASE_URL = "https://www.ebi.ac.uk/Tools/services/rest/infernal_c
 
 job_info = {}
 
+
 class Data(BaseModel):
     sequence: str
     email_address: str
@@ -20,6 +21,7 @@ class Data(BaseModel):
             "sequence": self.sequence,
         }
         return payload
+
 
 async def submit_job_to_jd(data: Data):
     try:
@@ -36,7 +38,9 @@ async def submit_job_to_jd(data: Data):
                 else:
                     raise HTTPException(status_code=400, detail="Job submission failed")
             else:
-                raise HTTPException(status_code=response.status_code, detail=response_data)
+                raise HTTPException(
+                    status_code=response.status_code, detail=response_data
+                )
     except httpx.HTTPError as e:
         print(f"HTTP Error: {e}")
         return {"error": f"An error occurred: {e}"}
@@ -44,11 +48,16 @@ async def submit_job_to_jd(data: Data):
         print(f"An Exception occurred: {e}")
         return {"error": f"An unexpected error occurred: {e}"}
 
-    
+
 @app.post("/submit-job")
-async def submit_job(sequence: ty.Annotated[str, Form()], email_address: ty.Annotated[str, Form()]):
-    job_id = await submit_job_to_jd(Data(sequence=sequence, email_address=email_address))
+async def submit_job(
+    sequence: ty.Annotated[str, Form()], email_address: ty.Annotated[str, Form()]
+):
+    job_id = await submit_job_to_jd(
+        Data(sequence=sequence, email_address=email_address)
+    )
     return {"jobId": job_id}
+
 
 @app.get("/job-status/{job_id}")
 async def get_job_status(job_id: str):
@@ -56,6 +65,7 @@ async def get_job_status(job_id: str):
         return job_info[job_id]
     else:
         raise HTTPException(status_code=404, detail="Job ID not found")
+
 
 @app.get("/job-result/{job_id}")
 async def get_job_result(job_id: str):
@@ -73,6 +83,8 @@ async def get_job_result(job_id: str):
     else:
         raise HTTPException(status_code=400, detail="Job is not yet completed")
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

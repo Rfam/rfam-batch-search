@@ -1,0 +1,18 @@
+# Proxy
+proxy: proxy-hh
+
+# Nginx
+nginxPort: 8000
+nginxTargetPort: 80
+nginxReplicas: 2
+nginxRequestsMemory: "2000Mi"
+nginxRequestsCPU: "1000m"
+nginxLimitsMemory: "2000Mi"
+
+# Rfam batch search
+branch: main
+port: 8000
+replicas: 4
+requestsMemory: "4000Mi"
+requestsCPU: "1000m"
+limitsMemory: "4000Mi"
