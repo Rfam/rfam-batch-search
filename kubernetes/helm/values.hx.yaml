@@ -1,2 +1,8 @@
 # Proxy
 proxy: proxy-hx
+
+# Nginx
+nginxReplicas: 1
+
+# Rfam batch search
+replicas: 1
